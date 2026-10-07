@@ -70,7 +70,10 @@ def test_gemma_service_analyze_text(monkeypatch):
 def test_gemma_service_requires_api_key(monkeypatch):
     monkeypatch.setattr(settings, "gemini_api_key", None)
 
-    with pytest.raises(ValueError, match="GEMINI_API_KEY is not configured."):
+    with pytest.raises(
+        ValueError,
+        match="GEMINI_API_KEY is not configured.",
+    ):
         GemmaService()
 
 
@@ -117,8 +120,9 @@ def test_gemma_service_analyze_image(monkeypatch):
         "app.services.gemma_service.genai.Client",
         MockImageClient,
     )
+
     monkeypatch.setattr(
-        "app.services.gemma_service.genai.types",
+        "app.services.gemma_service.types",
         MockTypes,
     )
 
@@ -226,3 +230,127 @@ def test_gemma_service_analyze_text_without_url_reports_no_url_evidence(
     assert result.risk_level == "HIGH"
     assert "No URLs detected." in prompt
     assert "No suspicious URL characteristics detected." in prompt
+
+
+def test_gemma_service_analyze_image_includes_qr_evidence(monkeypatch):
+    monkeypatch.setattr(settings, "gemini_api_key", "test-api-key")
+
+    captured = {}
+
+    class MockQRModels:
+        def generate_content(self, model, contents, config):
+            captured["prompt"] = contents[0]
+
+            assert model == settings.gemma_model
+            assert len(contents) == 2
+
+            image_part = contents[1]
+            assert image_part.inline_data.data == b"fake-image-data"
+            assert image_part.inline_data.mime_type == "image/png"
+
+            assert config["response_mime_type"] == "application/json"
+            assert config["response_schema"] is ScamAnalysis
+
+            return MockResponse()
+
+    class MockQRClient:
+        def __init__(self, api_key):
+            assert api_key == "test-api-key"
+            self.models = MockQRModels()
+
+    monkeypatch.setattr(
+        "app.services.gemma_service.genai.Client",
+        MockQRClient,
+    )
+
+    monkeypatch.setattr(
+        "app.services.gemma_service.QRAnalyzer.decode",
+        lambda self, image_base64: [
+            "upi://pay?pa=scammer@upi&am=5000"
+        ],
+    )
+
+    monkeypatch.setattr(
+        "app.services.gemma_service.QRAnalyzer.analyze",
+        lambda self, image_base64: [
+            "QR code contains payment-related content"
+        ],
+    )
+
+    image_data = b"fake-image-data"
+    image_base64 = base64.b64encode(image_data).decode("utf-8")
+
+    service = GemmaService()
+
+    result = service.analyze_image(
+        image_base64=image_base64,
+        mime_type="image/png",
+    )
+
+    prompt = captured["prompt"]
+
+    assert result.risk_level == "HIGH"
+    assert "Locally decoded QR-code payloads:" in prompt
+    assert "upi://pay?pa=scammer@upi&am=5000" in prompt
+    assert "Locally detected QR-code characteristics:" in prompt
+    assert "QR code contains payment-related content" in prompt
+
+
+def test_gemma_service_analyze_image_without_qr_reports_no_qr_evidence(
+    monkeypatch,
+):
+    monkeypatch.setattr(settings, "gemini_api_key", "test-api-key")
+
+    captured = {}
+
+    class MockNoQRModels:
+        def generate_content(self, model, contents, config):
+            captured["prompt"] = contents[0]
+
+            assert model == settings.gemma_model
+            assert len(contents) == 2
+
+            image_part = contents[1]
+            assert image_part.inline_data.data == b"fake-image-data"
+            assert image_part.inline_data.mime_type == "image/png"
+
+            assert config["response_mime_type"] == "application/json"
+            assert config["response_schema"] is ScamAnalysis
+
+            return MockResponse()
+
+    class MockNoQRClient:
+        def __init__(self, api_key):
+            assert api_key == "test-api-key"
+            self.models = MockNoQRModels()
+
+    monkeypatch.setattr(
+        "app.services.gemma_service.genai.Client",
+        MockNoQRClient,
+    )
+
+    monkeypatch.setattr(
+        "app.services.gemma_service.QRAnalyzer.decode",
+        lambda self, image_base64: [],
+    )
+
+    monkeypatch.setattr(
+        "app.services.gemma_service.QRAnalyzer.analyze",
+        lambda self, image_base64: [],
+    )
+
+    image_data = b"fake-image-data"
+    image_base64 = base64.b64encode(image_data).decode("utf-8")
+
+    service = GemmaService()
+
+    result = service.analyze_image(
+        image_base64=image_base64,
+        mime_type="image/png",
+    )
+
+    prompt = captured["prompt"]
+
+    assert result.risk_level == "HIGH"
+    assert "- No QR-code payload detected." in prompt
+    assert "- No suspicious QR-code characteristics detected." in prompt
