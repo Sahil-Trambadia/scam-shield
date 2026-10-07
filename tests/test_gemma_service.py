@@ -30,7 +30,7 @@ class MockModels:
     def generate_content(self, model, contents, config):
         assert model == settings.gemma_model
         assert config["response_mime_type"] == "application/json"
-        assert config["response_schema"] is ScamAnalysis
+        assert "response_schema" not in config
 
         return MockResponse()
 
@@ -157,7 +157,7 @@ def test_gemma_service_analyze_text_includes_url_evidence(monkeypatch):
 
             assert model == settings.gemma_model
             assert config["response_mime_type"] == "application/json"
-            assert config["response_schema"] is ScamAnalysis
+            assert "response_schema" not in config
 
             return MockResponse()
 
@@ -205,7 +205,7 @@ def test_gemma_service_analyze_text_without_url_reports_no_url_evidence(
 
             assert model == settings.gemma_model
             assert config["response_mime_type"] == "application/json"
-            assert config["response_schema"] is ScamAnalysis
+            assert "response_schema" not in config
 
             return MockResponse()
 
