@@ -4,6 +4,7 @@ from google import genai
 
 from app.config import settings
 from app.models.scam_analysis import ScamAnalysis
+from app.services.scam_risk_analyzer import ScamRiskAnalyzer
 
 
 class GemmaService:
@@ -15,6 +16,7 @@ class GemmaService:
 
         self.client = genai.Client(api_key=settings.gemini_api_key)
         self.model = settings.gemma_model
+        self.risk_analyzer = ScamRiskAnalyzer()
 
     def analyze_text(self, text: str) -> ScamAnalysis:
         """Analyze suspicious text using Gemma and return structured results."""
@@ -48,7 +50,9 @@ Message to analyze:
             },
         )
 
-        return ScamAnalysis.model_validate_json(response.text)
+        analysis = ScamAnalysis.model_validate_json(response.text)
+
+        return self.risk_analyzer.analyze(analysis)
 
     def analyze_image(
         self,
@@ -106,4 +110,6 @@ from your interpretation.
             },
         )
 
-        return ScamAnalysis.model_validate_json(response.text)
+        analysis = ScamAnalysis.model_validate_json(response.text)
+
+        return self.risk_analyzer.analyze(analysis)
