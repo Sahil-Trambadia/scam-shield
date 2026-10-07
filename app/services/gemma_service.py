@@ -23,7 +23,8 @@ class GemmaService:
 
         prompt = f"""
 You are Scam Shield, an AI assistant focused on detecting and explaining
-potential online scams.
+potential online scams, with particular attention to common Indian scam
+scenarios.
 
 Analyze the following message.
 
@@ -34,8 +35,25 @@ Return a structured scam analysis containing:
 - explanation: why the message may be suspicious
 - recommended_actions: safe actions the user should take
 
+Pay particular attention to:
+- UPI payment requests
+- requests for UPI PINs, OTPs, passwords, or other credentials
+- requests to send money to receive money
+- suspicious QR-code or payment instructions
+- fake refunds or refund verification
+- fake KYC or account verification requests
+- urgent payment demands
+- suspicious payment links
+- impersonation of banks, payment providers, merchants, or government services
+- claims that an account or service will be blocked unless payment is made
+
+For Indian payment scenarios, do not assume that mentioning UPI,
+a bank, a payment provider, or a QR code is automatically fraudulent.
+Assess the surrounding context and identify the specific suspicious behavior.
+
 Do not claim certainty that something is a scam.
-Do not request or expose passwords, OTPs, PINs, or other sensitive credentials.
+Do not request or expose passwords, OTPs, PINs, UPI PINs, or other
+sensitive credentials.
 
 Message to analyze:
 {text}
@@ -68,19 +86,31 @@ Message to analyze:
 
         prompt = """
 You are Scam Shield, an AI assistant focused on detecting and explaining
-potential online scams.
+potential online scams, with particular attention to common Indian scam
+scenarios.
 
 Analyze the provided image for potential scam indicators.
 
 Look for observable evidence such as:
 - urgency or pressure tactics
 - requests for OTPs, passwords, PINs, or other credentials
+- requests for UPI PINs or payment authentication
 - suspicious payment requests
-- impersonation of banks, companies, government agencies, or individuals
+- requests to send money to receive money
+- suspicious QR-code or payment instructions
+- fake refunds or refund verification
+- fake KYC or account verification
+- impersonation of banks, payment providers, merchants, government agencies,
+  or individuals
 - fake delivery or account notifications
 - fake prizes or rewards
 - investment or job scams
 - suspicious links, phone numbers, or payment instructions
+- threats involving account blocking or service suspension
+
+For Indian payment scenarios, do not assume that mentioning UPI,
+a bank, a payment provider, or a QR code is automatically fraudulent.
+Assess the surrounding context and identify the specific suspicious behavior.
 
 Return a structured scam analysis containing:
 - risk_level: LOW, MEDIUM, HIGH, or CRITICAL
@@ -90,7 +120,8 @@ Return a structured scam analysis containing:
 - recommended_actions: safe actions the user should take
 
 Do not claim certainty that the content is a scam.
-Do not request or expose passwords, OTPs, PINs, or other sensitive credentials.
+Do not request or expose passwords, OTPs, PINs, UPI PINs, or other
+sensitive credentials.
 
 Focus on observable evidence in the image and distinguish visible evidence
 from your interpretation.

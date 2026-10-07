@@ -6,11 +6,17 @@ VALID_RISK_LEVELS = {"LOW", "MEDIUM", "HIGH", "CRITICAL"}
 CREDENTIAL_SIGNALS = {
     "otp",
     "otp request",
+    "upi otp",
+    "payment otp",
     "password",
     "password request",
     "pin",
     "pin request",
+    "upi pin",
+    "upi pin request",
+    "payment pin",
     "credential request",
+    "banking credential",
 }
 
 
