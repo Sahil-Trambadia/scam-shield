@@ -5,6 +5,7 @@ from google import genai
 from app.config import settings
 from app.models.scam_analysis import ScamAnalysis
 from app.services.scam_risk_analyzer import ScamRiskAnalyzer
+from app.services.url_analyzer import URLAnalyzer
 
 
 class GemmaService:
@@ -17,9 +18,29 @@ class GemmaService:
         self.client = genai.Client(api_key=settings.gemini_api_key)
         self.model = settings.gemma_model
         self.risk_analyzer = ScamRiskAnalyzer()
+        self.url_analyzer = URLAnalyzer()
 
     def analyze_text(self, text: str) -> ScamAnalysis:
         """Analyze suspicious text using Gemma and return structured results."""
+
+        urls = self.url_analyzer.extract_urls(text)
+        url_signals = self.url_analyzer.analyze(text)
+
+        if urls:
+            url_evidence = "\n".join(
+                f"- URL: {url}"
+                for url in urls
+            )
+        else:
+            url_evidence = "- No URLs detected."
+
+        if url_signals:
+            url_signal_text = "\n".join(
+                f"- {signal}"
+                for signal in url_signals
+            )
+        else:
+            url_signal_text = "- No suspicious URL characteristics detected."
 
         prompt = f"""
 You are Scam Shield, an AI assistant focused on detecting and explaining
@@ -46,6 +67,24 @@ Pay particular attention to:
 - suspicious payment links
 - impersonation of banks, payment providers, merchants, or government services
 - claims that an account or service will be blocked unless payment is made
+- suspicious URLs and links
+
+For URL analysis:
+- Treat locally detected URL characteristics as evidence, not proof of fraud.
+- Do not claim a URL is malicious solely because it uses HTTP,
+  a URL shortener, an IP address, multiple subdomains, or unusual URL
+  formatting.
+- Consider the surrounding message and context before assigning risk.
+- Pay attention to URLs associated with payment, UPI, refunds, KYC,
+  verification, account access, OTPs, PINs, or credential requests.
+- Never attempt to visit, open, or access a URL.
+- Do not invent information about the destination of a URL.
+
+Locally extracted URLs:
+{url_evidence}
+
+Locally detected URL characteristics:
+{url_signal_text}
 
 For Indian payment scenarios, do not assume that mentioning UPI,
 a bank, a payment provider, or a QR code is automatically fraudulent.
@@ -69,7 +108,6 @@ Message to analyze:
         )
 
         analysis = ScamAnalysis.model_validate_json(response.text)
-
         return self.risk_analyzer.analyze(analysis)
 
     def analyze_image(
@@ -77,12 +115,9 @@ Message to analyze:
         image_base64: str,
         mime_type: str,
     ) -> ScamAnalysis:
-        """Analyze a suspicious image using Gemma's multimodal capabilities."""
+        """Analyze an image using Gemma and return structured results."""
 
-        try:
-            image_bytes = base64.b64decode(image_base64, validate=True)
-        except ValueError as exc:
-            raise ValueError("Invalid base64 image data.") from exc
+        image_bytes = base64.b64decode(image_base64)
 
         prompt = """
 You are Scam Shield, an AI assistant focused on detecting and explaining
@@ -112,29 +147,30 @@ For Indian payment scenarios, do not assume that mentioning UPI,
 a bank, a payment provider, or a QR code is automatically fraudulent.
 Assess the surrounding context and identify the specific suspicious behavior.
 
+Focus on observable evidence in the image and distinguish visible evidence
+from your interpretation.
+
 Return a structured scam analysis containing:
 - risk_level: LOW, MEDIUM, HIGH, or CRITICAL
 - scam_type: the most likely scam category
-- signals: specific suspicious signals visible in the image
+- signals: specific suspicious signals found
 - explanation: why the content may be suspicious
 - recommended_actions: safe actions the user should take
 
-Do not claim certainty that the content is a scam.
+Do not claim certainty that something is a scam.
 Do not request or expose passwords, OTPs, PINs, UPI PINs, or other
 sensitive credentials.
-
-Focus on observable evidence in the image and distinguish visible evidence
-from your interpretation.
 """
-
-        image_part = genai.types.Part.from_bytes(
-            data=image_bytes,
-            mime_type=mime_type,
-        )
 
         response = self.client.models.generate_content(
             model=self.model,
-            contents=[prompt, image_part],
+            contents=[
+                prompt,
+                {
+                    "data": image_bytes,
+                    "mime_type": mime_type,
+                },
+            ],
             config={
                 "response_mime_type": "application/json",
                 "response_schema": ScamAnalysis,
@@ -142,5 +178,4 @@ from your interpretation.
         )
 
         analysis = ScamAnalysis.model_validate_json(response.text)
-
         return self.risk_analyzer.analyze(analysis)
