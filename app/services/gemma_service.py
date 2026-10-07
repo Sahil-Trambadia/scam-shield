@@ -1,9 +1,11 @@
 import base64
 
 from google import genai
+from google.genai import types
 
 from app.config import settings
 from app.models.scam_analysis import ScamAnalysis
+from app.services.qr_analyzer import QRAnalyzer
 from app.services.scam_risk_analyzer import ScamRiskAnalyzer
 from app.services.url_analyzer import URLAnalyzer
 
@@ -19,6 +21,7 @@ class GemmaService:
         self.model = settings.gemma_model
         self.risk_analyzer = ScamRiskAnalyzer()
         self.url_analyzer = URLAnalyzer()
+        self.qr_analyzer = QRAnalyzer()
 
     def analyze_text(self, text: str) -> ScamAnalysis:
         """Analyze suspicious text using Gemma and return structured results."""
@@ -115,11 +118,34 @@ Message to analyze:
         image_base64: str,
         mime_type: str,
     ) -> ScamAnalysis:
-        """Analyze an image using Gemma and return structured results."""
+        """Analyze an image, including any detectable QR-code evidence."""
 
         image_bytes = base64.b64decode(image_base64)
 
-        prompt = """
+        try:
+            qr_payloads = self.qr_analyzer.decode(image_base64)
+            qr_signals = self.qr_analyzer.analyze(image_base64)
+        except ValueError:
+            qr_payloads = []
+            qr_signals = []
+
+        if qr_payloads:
+            qr_evidence = "\n".join(
+                f"- QR payload: {payload}"
+                for payload in qr_payloads
+            )
+        else:
+            qr_evidence = "- No QR-code payload detected."
+
+        if qr_signals:
+            qr_signal_text = "\n".join(
+                f"- {signal}"
+                for signal in qr_signals
+            )
+        else:
+            qr_signal_text = "- No suspicious QR-code characteristics detected."
+
+        prompt = f"""
 You are Scam Shield, an AI assistant focused on detecting and explaining
 potential online scams, with particular attention to common Indian scam
 scenarios.
@@ -143,6 +169,22 @@ Look for observable evidence such as:
 - suspicious links, phone numbers, or payment instructions
 - threats involving account blocking or service suspension
 
+For QR-code analysis:
+- Treat decoded QR content as evidence, not proof of fraud.
+- Consider the surrounding image context before assigning risk.
+- Pay particular attention to QR codes containing payment requests,
+  UPI instructions, credential requests, verification requests, or suspicious URLs.
+- Do not assume that every QR code is fraudulent.
+- Never attempt to open, visit, or access a decoded URL.
+- Do not invent information about a QR destination.
+- Use the locally decoded QR evidence together with the visible image content.
+
+Locally decoded QR-code payloads:
+{qr_evidence}
+
+Locally detected QR-code characteristics:
+{qr_signal_text}
+
 For Indian payment scenarios, do not assume that mentioning UPI,
 a bank, a payment provider, or a QR code is automatically fraudulent.
 Assess the surrounding context and identify the specific suspicious behavior.
@@ -162,14 +204,16 @@ Do not request or expose passwords, OTPs, PINs, UPI PINs, or other
 sensitive credentials.
 """
 
+        image_part = types.Part.from_bytes(
+            data=image_bytes,
+            mime_type=mime_type,
+        )
+
         response = self.client.models.generate_content(
             model=self.model,
             contents=[
                 prompt,
-                {
-                    "data": image_bytes,
-                    "mime_type": mime_type,
-                },
+                image_part,
             ],
             config={
                 "response_mime_type": "application/json",
