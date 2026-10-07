@@ -1,4 +1,5 @@
 import base64
+import json
 
 from google import genai
 from google.genai import types
@@ -22,6 +23,29 @@ class GemmaService:
         self.risk_analyzer = ScamRiskAnalyzer()
         self.url_analyzer = URLAnalyzer()
         self.qr_analyzer = QRAnalyzer()
+
+    def _parse_analysis(self, response_text: str) -> ScamAnalysis:
+        """Parse Gemma's structured response, including fenced JSON output."""
+
+        cleaned_text = response_text.strip()
+
+        if cleaned_text.startswith("```"):
+            lines = cleaned_text.splitlines()
+
+            if lines and lines[0].strip().startswith("```"):
+                lines = lines[1:]
+
+            if lines and lines[-1].strip() == "```":
+                lines = lines[:-1]
+
+            cleaned_text = "\n".join(lines).strip()
+
+        try:
+            data = json.loads(cleaned_text)
+        except json.JSONDecodeError as exc:
+            raise ValueError("Gemma returned invalid JSON.") from exc
+
+        return ScamAnalysis.model_validate(data)
 
     def analyze_text(self, text: str) -> ScamAnalysis:
         """Analyze suspicious text using Gemma and return structured results."""
@@ -106,11 +130,10 @@ Message to analyze:
             contents=prompt,
             config={
                 "response_mime_type": "application/json",
-                "response_schema": ScamAnalysis,
             },
         )
 
-        analysis = ScamAnalysis.model_validate_json(response.text)
+        analysis = self._parse_analysis(response.text)
         return self.risk_analyzer.analyze(analysis)
 
     def analyze_image(
@@ -221,5 +244,5 @@ sensitive credentials.
             },
         )
 
-        analysis = ScamAnalysis.model_validate_json(response.text)
+        analysis = self._parse_analysis(response.text)
         return self.risk_analyzer.analyze(analysis)

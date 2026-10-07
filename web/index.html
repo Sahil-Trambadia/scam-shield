@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scam Shield</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <main class="container">
+        <header class="hero">
+            <div class="logo">🛡️</div>
+            <div>
+                <h1>Scam Shield</h1>
+                <p>AI-powered scam detection with Gemma 4</p>
+            </div>
+        </header>
+
+        <section class="card">
+            <h2>Analyze something suspicious</h2>
+            <p class="subtitle">
+                Paste a message or URL, or upload a screenshot / QR code.
+            </p>
+
+            <div class="tabs">
+                <button class="tab active" data-mode="text">📝 Text / URL</button>
+                <button class="tab" data-mode="image">🖼️ Image / QR</button>
+            </div>
+
+            <section id="text-section">
+                <textarea
+                    id="text-input"
+                    placeholder="Paste a suspicious message or URL here..."
+                    rows="8"
+                ></textarea>
+
+                <button id="analyze-text" class="analyze-button">
+                    🔍 Analyze
+                </button>
+            </section>
+
+            <section id="image-section" class="hidden">
+                <label class="upload-box" for="image-input">
+                    <span class="upload-icon">📷</span>
+                    <strong>Choose an image</strong>
+                    <span>Screenshot, QR code, or suspicious image</span>
+                </label>
+
+                <input
+                    id="image-input"
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                >
+
+                <div id="file-name" class="file-name"></div>
+
+                <button id="analyze-image" class="analyze-button">
+                    🔍 Analyze Image
+                </button>
+            </section>
+
+            <div id="loading" class="loading hidden">
+                <div class="spinner"></div>
+                <span>Gemma 4 is analyzing...</span>
+            </div>
+
+            <div id="error" class="error hidden"></div>
+        </section>
+
+        <section id="result" class="card result hidden">
+            <div class="result-header">
+                <div>
+                    <p class="result-label">Risk Assessment</p>
+                    <h2 id="risk-level">-</h2>
+                </div>
+
+                <div class="shield-result">🛡️</div>
+            </div>
+
+            <div class="result-section">
+                <h3>Scam Type</h3>
+                <p id="scam-type">-</p>
+            </div>
+
+            <div class="result-section">
+                <h3>⚠️ Suspicious Signals</h3>
+                <ul id="signals"></ul>
+            </div>
+
+            <div class="result-section">
+                <h3>💡 Why this is suspicious</h3>
+                <p id="explanation">-</p>
+            </div>
+
+            <div class="result-section">
+                <h3>✅ What you should do</h3>
+                <ul id="recommendations"></ul>
+            </div>
+        </section>
+
+        <footer>
+            <p>
+                Scam Shield uses Gemma 4 to analyze suspicious content.
+                Never share OTPs, PINs, passwords, or other sensitive credentials.
+            </p>
+        </footer>
+    </main>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
