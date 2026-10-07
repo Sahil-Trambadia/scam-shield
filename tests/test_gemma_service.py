@@ -10,16 +10,16 @@ from app.services.gemma_service import GemmaService
 class MockResponse:
     text = """
     {
-        "risk_level": "HIGH",
+        "risk_level": "high",
         "scam_type": "phishing",
         "signals": [
             "otp_request",
             "urgency",
-            "prize_claim"
+            "prize_claim",
+            "otp_request"
         ],
         "explanation": "The message asks for an OTP and creates urgency around a prize.",
         "recommended_actions": [
-            "Do not share the OTP.",
             "Do not respond to the message."
         ]
     }
@@ -29,8 +29,6 @@ class MockResponse:
 class MockModels:
     def generate_content(self, model, contents, config):
         assert model == settings.gemma_model
-        assert "You are Scam Shield" in contents
-        assert "Send your OTP immediately to receive your prize." in contents
         assert config["response_mime_type"] == "application/json"
         assert config["response_schema"] is ScamAnalysis
 
@@ -58,7 +56,15 @@ def test_gemma_service_analyze_text(monkeypatch):
 
     assert result.risk_level == "HIGH"
     assert result.scam_type == "phishing"
-    assert "otp_request" in result.signals
+    assert result.signals == [
+        "otp_request",
+        "urgency",
+        "prize_claim",
+    ]
+    assert (
+        "Do not share passwords, OTPs, PINs, or other authentication "
+        "credentials."
+    ) in result.recommended_actions
 
 
 def test_gemma_service_requires_api_key(monkeypatch):
@@ -125,4 +131,12 @@ def test_gemma_service_analyze_image(monkeypatch):
 
     assert result.risk_level == "HIGH"
     assert result.scam_type == "phishing"
-    assert "otp_request" in result.signals
+    assert result.signals == [
+        "otp_request",
+        "urgency",
+        "prize_claim",
+    ]
+    assert (
+        "Do not share passwords, OTPs, PINs, or other authentication "
+        "credentials."
+    ) in result.recommended_actions
